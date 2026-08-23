@@ -1,0 +1,36 @@
+<?lsp
+local authority,authorities,err=app.view.authorityFromRequest(request)
+local csrf=app.security.csrfToken(request)
+?>
+<section class="page">
+  <header class="page-header"><div><p class="eyebrow">New server identity</p><h1>Issue server certificate</h1>
+  <p>The certificate uses the same key algorithm as its authority. Host names and version 4 Internet Protocol addresses, such as 127.0.0.1, are supported.</p></div></header>
+  <?lsp if err then ?><div class="alert alert-error"><?lsp=app.util.html(err)?></div><?lsp end ?>
+  <?lsp if not authority then ?>
+    <div class="empty panel"><h2>Create an authority first</h2><p>A server certificate must be signed by an active root authority.</p>
+    <a class="button button-primary" href="<?lsp=app.base?>authorities.html" hx-get="<?lsp=app.base?>authorities.html" hx-target="#main" hx-push-url="true">Certificate authorities</a></div>
+  <?lsp else ?>
+  <article class="panel form-panel">
+    <form method="post" action="<?lsp=app.base?>actions/create-certificate" hx-post="<?lsp=app.base?>actions/create-certificate" hx-target="#main" hx-swap="innerHTML">
+      <input type="hidden" name="csrf" value="<?lsp=csrf?>">
+      <div class="form-grid">
+        <label><span>Certificate authority</span><select name="authority" required>
+        <?lsp for _,item in ipairs(authorities) do ?><option value="<?lsp=item.id?>"<?lsp=item.id == authority.id and ' selected' or ''?>><?lsp=app.util.html(item.name)?> · <?lsp=app.util.html(app.view.algorithm(item.algorithm))?></option><?lsp end ?>
+        </select></label>
+        <label><span>Certificate label</span><input name="label" maxlength="64" autocomplete="off" placeholder="Production gateway"><small>A friendly name shown only in Certificate Manager.</small></label>
+        <label><span>Primary server name or network address</span><input name="commonName" maxlength="253" required autocomplete="off" placeholder="gateway.example.internal"><small>This is the identity clients normally use to connect. It is added to the certificate's server-identity list and copied to the Common Name field for display and compatibility.</small></label>
+        <label><span>Validity in days</span><input type="number" name="days" min="1" max="825" value="397" required></label>
+        <label class="span-two"><span>Additional server names or network addresses</span><textarea name="san" maxlength="2048" rows="3" placeholder="gateway; api.example.internal; 127.0.0.1"></textarea><small>Clients verify server identity against the certificate's Subject Alternative Name field, not its Common Name. Add every other name or version 4 Internet Protocol address clients may use, separated by commas, semicolons, or new lines. Complete host names such as gateway.example.internal are the most portable choice.</small></label>
+        <label><span>Organization</span><input name="organization" maxlength="128" autocomplete="organization"></label>
+        <label><span>Organizational unit</span><input name="unit" maxlength="128"></label>
+        <label><span>Locality</span><input name="locality" maxlength="128"></label>
+        <label><span>State or province</span><input name="province" maxlength="128"></label>
+        <label><span>Country</span><input name="country" maxlength="2" pattern="[A-Za-z]{2}" placeholder="DE"></label>
+        <label><span>Email</span><input name="email" maxlength="128" type="email"></label>
+      </div>
+      <div class="alert alert-warn small"><strong>Current limitation:</strong> Mako Server currently creates server certificates only. Client certificates and code-signing certificates are not available.</div>
+      <div class="form-actions"><button class="button button-primary" type="submit">Issue certificate</button><p>A certificate number is reserved before signing and is never reused, even if generation fails.</p></div>
+    </form>
+  </article>
+  <?lsp end ?>
+</section>

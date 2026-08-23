@@ -1,0 +1,35 @@
+<?lsp
+local id=app.util.trim(request:data"id")
+local certificate,err=app.store.getCertificate(id,false)
+if not certificate then response:setstatus(404) end
+local sans=certificate and app.util.safeJsonDecode(certificate.san_json,{}) or {}
+?>
+<section class="page">
+<?lsp if not certificate then ?>
+  <header class="page-header"><div><p class="eyebrow">Not found</p><h1>Certificate unavailable</h1></div></header><div class="alert alert-error"><?lsp=app.util.html(err or 'The requested certificate does not exist.')?></div>
+<?lsp else ?>
+  <header class="page-header"><div><p class="eyebrow">Server certificate · number <?lsp=app.util.html(certificate.serial)?></p><h1><?lsp=app.util.html(certificate.label)?></h1>
+  <p><?lsp=app.util.html(certificate.common_name)?> · signed by <?lsp=app.util.html(certificate.authority_name)?></p></div><?lsp=app.view.status(certificate.status)?></header>
+  <?lsp if certificate.status == 'failed' then ?><div class="alert alert-error"><?lsp=app.util.html(certificate.error or 'Issuance failed.')?></div><?lsp end ?>
+  <div class="content-grid">
+    <article class="panel"><div class="panel-heading"><h2>Issuance record</h2></div><dl class="detail-grid">
+    <dt>Purpose</dt><dd>Secure server</dd><dt>Key algorithm</dt><dd><?lsp=app.util.html(app.view.algorithm(certificate.algorithm))?></dd><dt>Certificate signature</dt><dd><?lsp=app.util.html(certificate.hash_algorithm:upper())?></dd>
+    <dt>Valid from</dt><dd><?lsp=app.view.date(certificate.not_before)?></dd><dt>Valid until</dt><dd><?lsp=app.view.date(certificate.not_after)?></dd>
+    <dt>Authority</dt><dd><?lsp=app.util.html(certificate.authority_name)?></dd><dt>Serial</dt><dd><?lsp=app.util.html(certificate.serial)?></dd></dl></article>
+    <article class="panel"><div class="panel-heading"><h2>Downloads</h2></div><?lsp if certificate.status == 'active' then ?><div class="download-list">
+    <a href="<?lsp=app.base?>downloads/certificate/<?lsp=certificate.id?>.pem">Certificate — PEM text</a><a href="<?lsp=app.base?>downloads/certificate/<?lsp=certificate.id?>.cer">Certificate — binary .cer</a>
+    <a href="<?lsp=app.base?>downloads/certificate/<?lsp=certificate.id?>.chain.pem">Complete certificate chain — PEM text</a>
+    <form method="post" action="<?lsp=app.base?>actions/download-private-key">
+      <input type="hidden" name="csrf" value="<?lsp=app.security.csrfToken(request)?>">
+      <input type="hidden" name="certificate" value="<?lsp=certificate.id?>">
+      <button class="button button-secondary download-button" type="submit" data-confirm="Download this unencrypted private key? Store the file securely.">Private key — PEM text</button>
+    </form></div><?lsp else ?><p class="muted">No downloadable certificate was created.</p><?lsp end ?>
+    <p class="muted small">The server private key is exported without a password so a server can load it automatically. Store it securely. The authority private key cannot be downloaded. Combined .p12 or .pfx files are not provided.</p></article>
+  </div>
+  <article class="panel"><div class="panel-heading"><div><h2>Server names and addresses</h2><p>These identities are stored in the certificate's Subject Alternative Name field.</p></div></div><div class="tag-list"><?lsp for _,san in ipairs(sans) do ?><span><?lsp=app.util.html(san)?></span><?lsp end ?></div></article>
+  <?lsp if certificate.status == 'active' then ?>
+  <article class="panel"><div class="panel-heading"><div><h2>Fields read from the certificate</h2><p>These values were read from the generated certificate by Mako Server.</p></div></div><?lsp=app.view.nativeFields(certificate.parsed_json)?></article>
+  <article class="panel"><div class="panel-heading"><div><h2>Certificate fingerprint (SHA-256)</h2><p>A fingerprint is a short value used to identify this exact certificate.</p></div></div><p class="fingerprint"><?lsp=app.view.shortFingerprint(certificate.fingerprint_sha256)?></p></article>
+  <?lsp end ?>
+<?lsp end ?>
+</section>

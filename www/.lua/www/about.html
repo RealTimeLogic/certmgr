@@ -1,0 +1,61 @@
+<?lsp
+local mode=app.config.keyMode
+local unique=mode == "unique"
+local modeName=unique and "Unique · bound to this computer" or "Global · portable within a trust domain"
+?>
+<section class="page about-page">
+  <header class="about-hero">
+    <div class="about-hero-copy">
+      <p class="eyebrow">Private certificates, made practical</p>
+      <h1>Build trust for the systems you control.</h1>
+     <p>Certificate Manager helps you create a private certificate authority, issue trusted server certificates, export deployment-ready certificates and keys, and verify the result, all from one local application.</p>
+      <div class="about-actions">
+        <a class="button button-primary" href="<?lsp=app.base?>authorities.html" hx-get="<?lsp=app.base?>authorities.html" hx-target="#main" hx-push-url="true">Create a certificate authority</a>
+        <a class="button button-secondary" href="https://realtimelogic.com/articles/How-to-act-as-a-Certificate-Authority-the-Easy-Way" target="_blank" rel="noopener noreferrer">Read the practical guide</a>
+      </div>
+    </div>
+    <div class="about-trust-mark" aria-hidden="true"><span>✓</span><small>Private trust</small></div>
+  </header>
+
+  <div class="about-grid">
+    <article class="panel about-purpose">
+      <p class="eyebrow">What you can build</p>
+      <h2>Your own private chain of trust</h2>
+      <p>Set up a complete private certificate system for development environments, internal services, lab equipment, and embedded or connected products where you control which clients trust your root certificate.</p>
+      <p>Create the root authority, issue server certificates for your names and addresses, install the root where trust is required, and test each certificate before deployment.</p>
+    </article>
+
+    <aside class="about-learning" aria-label="Certificate learning resources">
+      <a class="learning-card" href="https://realtimelogic.com/articles/How-to-act-as-a-Certificate-Authority-the-Easy-Way" target="_blank" rel="noopener noreferrer">
+        <span class="learning-label">Step-by-step guide</span>
+        <strong>Act as your own Certificate Authority</strong>
+        <span>Follow the complete workflow from creating a root to testing a signed certificate.</span>
+        <b aria-hidden="true">Read guide →</b>
+      </a>
+      <a class="learning-card" href="https://realtimelogic.com/articles/Certificate-Management-for-Embedded-Systems" target="_blank" rel="noopener noreferrer">
+        <span class="learning-label">New to certificates?</span>
+        <strong>Start with certificates and trust</strong>
+        <span>Learn how private keys, certificates, certificate authorities, and chains of trust fit together.</span>
+        <b aria-hidden="true">Learn the basics →</b>
+      </a>
+    </aside>
+  </div>
+
+  <article class="panel configuration-panel">
+    <div class="configuration-heading">
+      <div><p class="eyebrow">Configuration</p><h2>Private-key protection</h2></div>
+      <span class="mode-badge<?lsp=unique and ' mode-unique' or ' mode-global'?>">Active: <?lsp=app.util.html(modeName)?></span>
+    </div>
+    <?lsp if unique then ?>
+      <h3>This database is protected for this computer.</h3>
+      <p>Mako Server protects each new private key with a key derived specifically for this computer. The database is not transferable for operational use because another computer cannot decrypt those private keys.</p>
+      <p class="configuration-note">Copying the database can still provide a local recovery copy, but it is not a portable backup.</p>
+      <p><strong>Need a portable database?</strong> Set <code>certmgr.keyMode="global"</code> in <code>mako.conf</code>, point <code>dbdir</code> to a new empty database location, and restart Mako Server before creating the certificate authority. Changing the setting does not convert keys already created in unique mode.</p>
+    <?lsp else ?>
+      <h3>This database can move within its configured trust domain.</h3>
+      <p>Mako Server protects new private keys with a key shared by an administrator-configured trust domain. The database can be transferred only to another Mako Server installation in that same trust domain.</p>
+      <p class="configuration-note">Global mode enables controlled portability; the database still contains sensitive encrypted key material and must be protected.</p>
+    <?lsp end ?>
+      <p class="configuration-foot">Current setting: <code>certmgr.keyMode="<?lsp=app.util.html(mode)?>"</code> in <code>mako.conf</code>. Existing records retain the protection mode used when they were created; changing this setting affects new keys only. Global mode makes encrypted records portable within their configured trust domain; it does not make Certificate Manager public or remotely accessible.</p>
+  </article>
+</section>

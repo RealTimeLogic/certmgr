@@ -1,0 +1,11 @@
+[
+  {"name":"Overview","href":"index.html","mark":"O"},
+  {"name":"Certificate authorities","href":"authorities.html","mark":"A"},
+  {"name":"Issue certificate","href":"issue.html","mark":"+"},
+  {"name":"Certificates","href":"certificates.html","mark":"C"},
+  {"name":"Test certificate","href":"test.html","mark":"T"},
+  {"name":"About","href":"about.html","mark":"?"},
+  {"name":"Authority details","href":"authority.html","hidden":true,"active":"authorities.html"},
+  {"name":"Certificate details","href":"certificate.html","hidden":true,"active":"certificates.html"},
+  {"name":"Not found","href":"404.html","hidden":true}
+]

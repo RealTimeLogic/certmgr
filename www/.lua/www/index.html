@@ -1,0 +1,47 @@
+<?lsp
+local stats,statsErr=app.store.stats()
+local authority,authorities,authorityErr=app.view.authorityFromRequest(request)
+local listener=app.listener.status()
+local protection=app.config.keyMode == "unique" and "Bound to this computer" or "Portable within the configured trust domain"
+?>
+<section class="page">
+  <header class="page-header">
+    <div><p class="eyebrow">Private certificate workspace</p><h1>Certificate Manager</h1>
+    <p>Create private certificate authorities and server certificates using Mako Server's built-in certificate services.</p></div>
+    <a class="button button-primary" href="<?lsp=app.base?>issue.html<?lsp=authority and '?ca='..ba.urlencode(authority.id) or ''?>"
+      hx-get="<?lsp=app.base?>issue.html<?lsp=authority and '?ca='..ba.urlencode(authority.id) or ''?>" hx-target="#main" hx-push-url="true">Issue certificate</a>
+  </header>
+  <?lsp if statsErr or authorityErr then ?>
+    <div class="alert alert-error"><?lsp=app.util.html(statsErr or authorityErr)?></div>
+  <?lsp end ?>
+  <div class="metric-grid">
+    <article class="metric"><span>Authorities</span><strong><?lsp=app.util.html(stats and stats.authorities or 0)?></strong></article>
+    <article class="metric"><span>Active certificates</span><strong><?lsp=app.util.html(stats and stats.certificates or 0)?></strong></article>
+    <article class="metric"><span>Failed issuances</span><strong><?lsp=app.util.html(stats and stats.failed or 0)?></strong></article>
+    <article class="metric"><span>Certificate test</span><strong class="metric-text"><?lsp=listener.running and ('Port '..listener.port) or 'Stopped'?></strong></article>
+  </div>
+  <div class="content-grid">
+    <article class="panel">
+      <div class="panel-heading"><div><p class="eyebrow">Current context</p><h2>Certificate authority</h2></div>
+      <a href="<?lsp=app.base?>authorities.html" hx-get="<?lsp=app.base?>authorities.html" hx-target="#main" hx-push-url="true">Manage</a></div>
+      <?lsp if authority then ?>
+        <div class="authority-summary"><div class="authority-avatar">ROOT</div><div><h3><?lsp=app.util.html(authority.name)?></h3>
+        <p><?lsp=app.util.html(app.view.algorithm(authority.algorithm))?> · <?lsp=app.util.html(authority.hash_algorithm:upper())?></p></div></div>
+        <dl class="detail-grid compact"><dt>Expires</dt><dd><?lsp=app.view.date(authority.not_after)?></dd>
+        <dt>Issued</dt><dd><?lsp=app.util.html(authority.issued_count or 0)?></dd><dt>Next serial</dt><dd><?lsp=app.util.html(authority.next_serial)?></dd>
+        <dt>Private-key protection</dt><dd><?lsp=app.util.html(authority.key_mode == 'unique' and 'Bound to this computer' or 'Portable within the configured trust domain')?></dd></dl>
+      <?lsp else ?>
+        <div class="empty"><h3>No authority yet</h3><p>Create the first root authority to begin issuing server certificates.</p>
+        <a class="button button-primary" href="<?lsp=app.base?>authorities.html" hx-get="<?lsp=app.base?>authorities.html" hx-target="#main" hx-push-url="true">Create authority</a></div>
+      <?lsp end ?>
+    </article>
+    <article class="panel">
+      <div class="panel-heading"><div><p class="eyebrow">Security posture</p><h2>Storage and scope</h2></div></div>
+      <ul class="check-list"><li>Reliable database writes</li><li>Authenticated encryption for stored private keys</li>
+      <li><?lsp=app.util.html(protection)?> for new keys</li><li>Application and test listener accessible only from this computer</li>
+      <li>Protected and audited server-key downloads</li></ul>
+      <p class="muted small">Database: certmgr.sqlite.db in the configured Mako database directory</p>
+    </article>
+  </div>
+  <div class="alert alert-warn"><strong>Current certificate support:</strong> Mako Server creates server certificates for host names and version 4 Internet Protocol addresses, such as 127.0.0.1. Version 6 addresses, client certificates, code-signing certificates, and Extended Key Usage controls are not currently available.</div>
+</section>

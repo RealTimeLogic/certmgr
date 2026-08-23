@@ -1,0 +1,26 @@
+<?lsp
+local authority
+local authorities,authorityErr=app.store.listAuthorities()
+local requested=app.util.trim(request:data"ca")
+if authorities and requested ~= '' then
+   for _,item in ipairs(authorities) do if item.id == requested then authority=item break end end
+   if not authority then authorityErr='The requested certificate authority was not found.' end
+end
+local certificates,err
+if not authorityErr then certificates,err=app.store.listCertificates(authority and authority.id or nil) end
+?>
+<section class="page">
+  <header class="page-header"><div><p class="eyebrow">Issued server identities</p><h1>Certificates</h1><p>Private keys remain encrypted in the database until you explicitly download one for deployment.</p></div></header>
+  <?lsp if err or authorityErr then ?><div class="alert alert-error"><?lsp=app.util.html(err or authorityErr)?></div><?lsp end ?>
+  <?lsp if authorities and #authorities > 0 then ?>
+  <div class="filter-row"><span>Authority</span><a class="filter-chip<?lsp=not authority and ' is-active' or ''?>" href="<?lsp=app.base?>certificates.html" hx-get="<?lsp=app.base?>certificates.html" hx-target="#main" hx-push-url="true">All</a><?lsp for _,item in ipairs(authorities) do local href=app.base..'certificates.html?ca='..ba.urlencode(item.id) ?>
+  <a class="filter-chip<?lsp=authority and item.id == authority.id and ' is-active' or ''?>" href="<?lsp=href?>" hx-get="<?lsp=href?>" hx-target="#main" hx-push-url="true"><?lsp=app.util.html(item.name)?></a><?lsp end ?></div>
+  <?lsp end ?>
+  <?lsp if certificates and #certificates > 0 then ?>
+  <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Serial</th><th>Label</th><th>Primary identity</th><th>Expires</th><th>Status</th></tr></thead><tbody>
+  <?lsp for _,certificate in ipairs(certificates) do local href=app.base..'certificate.html?id='..ba.urlencode(certificate.id) ?>
+    <tr><td><?lsp=app.util.html(certificate.serial)?></td><td><a href="<?lsp=href?>" hx-get="<?lsp=href?>" hx-target="#main" hx-push-url="true"><?lsp=app.util.html(certificate.label)?></a></td>
+    <td><?lsp=app.util.html(certificate.common_name)?></td><td><?lsp=app.view.date(certificate.not_after)?></td><td><?lsp=app.view.status(certificate.status)?></td></tr>
+  <?lsp end ?></tbody></table></div></div>
+  <?lsp else ?><div class="empty panel"><h2>No certificates in this view</h2><p>Issue the first server certificate from an active authority.</p></div><?lsp end ?>
+</section>

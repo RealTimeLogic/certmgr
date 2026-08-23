@@ -1,0 +1,24 @@
+<?lsp
+local certificates,err=app.store.listCertificates()
+local status=app.listener.status()
+local csrf=app.security.csrfToken(request)
+?>
+<section class="page">
+  <header class="page-header"><div><p class="eyebrow">Certificate check</p><h1>Test a server certificate</h1>
+  <p>Temporarily uses one issued certificate on a secure Mako Server listener available only from this computer.</p></div></header>
+  <?lsp if err then ?><div class="alert alert-error"><?lsp=app.util.html(err)?></div><?lsp end ?>
+  <?lsp if status.running then local url='https://'..status.common_name..':'..status.port..app.base ?>
+  <div class="alert alert-success"><strong>Listener running:</strong> <?lsp=app.util.html(status.address)?>:<?lsp=status.port?> using <?lsp=app.util.html(status.common_name)?>.
+  <a href="<?lsp=app.util.html(url)?>" target="_blank" rel="noopener">Open secure test page</a></div>
+  <form method="post" action="<?lsp=app.base?>actions/stop-test" hx-post="<?lsp=app.base?>actions/stop-test" hx-target="#main"><input type="hidden" name="csrf" value="<?lsp=csrf?>"><button class="button button-danger" type="submit">Stop listener</button></form>
+  <?lsp else ?>
+  <div class="alert alert-neutral">The test listener is stopped.</div>
+  <?lsp end ?>
+  <article class="panel"><div class="panel-heading"><h2>Available certificates</h2></div>
+  <?lsp local any=false for _,certificate in ipairs(certificates or {}) do if certificate.status == 'active' then any=true ?>
+    <div class="test-row"><div><strong><?lsp=app.util.html(certificate.label)?></strong><span><?lsp=app.util.html(certificate.common_name)?> · <?lsp=app.view.algorithm(certificate.algorithm)?></span></div>
+    <form method="post" action="<?lsp=app.base?>actions/start-test" hx-post="<?lsp=app.base?>actions/start-test" hx-target="#main"><input type="hidden" name="csrf" value="<?lsp=csrf?>"><input type="hidden" name="certificate" value="<?lsp=certificate.id?>"><button class="button button-secondary" type="submit">Start test</button></form></div>
+  <?lsp end end if not any then ?><div class="empty"><p>No active server certificate is available.</p></div><?lsp end ?>
+  </article>
+  <div class="alert alert-warn small"><strong>Server-name setup:</strong> if the primary server name is not localhost, map it to 127.0.0.1 in this computer's hosts file before opening the test page. The listener cannot be reached from another computer.</div>
+</section>

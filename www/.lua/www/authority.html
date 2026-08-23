@@ -1,0 +1,29 @@
+<?lsp
+local id=app.util.trim(request:data"id")
+local authority,err=app.store.getAuthority(id,false)
+if not authority then response:setstatus(404) end
+?>
+<section class="page">
+<?lsp if not authority then ?>
+  <header class="page-header"><div><p class="eyebrow">Not found</p><h1>Authority unavailable</h1></div></header>
+  <div class="alert alert-error"><?lsp=app.util.html(err or 'The requested authority does not exist.')?></div>
+<?lsp else local issue=app.base..'issue.html?ca='..ba.urlencode(authority.id) local protection=authority.key_mode == 'unique' and 'Bound to this computer' or 'Portable within the configured trust domain' ?>
+  <header class="page-header"><div><p class="eyebrow">Certificate authority</p><h1><?lsp=app.util.html(authority.name)?></h1>
+  <p><?lsp=app.util.html(app.view.algorithm(authority.algorithm))?> root authority. Private-key protection: <?lsp=app.util.html(protection)?>.</p></div>
+  <a class="button button-primary" href="<?lsp=issue?>" hx-get="<?lsp=issue?>" hx-target="#main" hx-push-url="true">Issue certificate</a></header>
+  <div class="content-grid">
+    <article class="panel"><div class="panel-heading"><h2>Issuance record</h2></div>
+    <dl class="detail-grid"><dt>Algorithm</dt><dd><?lsp=app.util.html(app.view.algorithm(authority.algorithm))?></dd><dt>Signature hash</dt><dd><?lsp=app.util.html(authority.hash_algorithm:upper())?></dd>
+    <dt>Valid from</dt><dd><?lsp=app.view.date(authority.not_before)?></dd><dt>Valid until</dt><dd><?lsp=app.view.date(authority.not_after)?></dd>
+    <dt>Next certificate number</dt><dd><?lsp=app.util.html(authority.next_serial)?></dd><dt>Private-key protection</dt><dd><?lsp=app.util.html(protection)?></dd></dl></article>
+    <article class="panel"><div class="panel-heading"><h2>Downloads</h2></div><div class="download-list">
+    <a href="<?lsp=app.base?>downloads/authority/<?lsp=authority.id?>.pem">Root certificate — PEM text</a>
+    <a href="<?lsp=app.base?>downloads/authority/<?lsp=authority.id?>.cer">Root certificate — binary .cer</a>
+    <a href="<?lsp=app.base?>downloads/authority/<?lsp=authority.id?>.shark-ca.bin">SharkSSL trust list</a></div>
+    <p class="muted small">The authority private key cannot be downloaded. Combined certificate-and-key files in .p12 or .pfx format are not provided.</p></article>
+  </div>
+  <article class="panel"><div class="panel-heading"><h2>Authority identity</h2></div><?lsp=app.view.dnFields(authority.dn_json)?></article>
+  <article class="panel"><div class="panel-heading"><div><h2>Fields read from the certificate</h2><p>These values were read from the generated certificate by Mako Server.</p></div></div><?lsp=app.view.nativeFields(authority.parsed_json)?></article>
+  <article class="panel"><div class="panel-heading"><div><h2>Certificate fingerprint (SHA-256)</h2><p>A fingerprint is a short value used to identify this exact certificate.</p></div></div><p class="fingerprint"><?lsp=app.view.shortFingerprint(authority.fingerprint_sha256)?></p></article>
+<?lsp end ?>
+</section>

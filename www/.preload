@@ -1,0 +1,30 @@
+app.io=io
+app.dir=dir
+
+app.util=io:dofile(".lua/util.lua")
+app.base=app.util.baseUri(dir)
+app.config=io:dofile(".lua/config.lua",app)
+app.pki=io:dofile(".lua/pki.lua",app)
+app.keyvault=io:dofile(".lua/keyvault.lua",app)
+app.validate=io:dofile(".lua/validate.lua",app)
+app.store=io:dofile(".lua/store.lua",app)
+app.store.recoverPending(function(count,err)
+   if not count then trace("Certificate Manager pending-issuance recovery failed",err)
+   elseif count > 0 then trace("Certificate Manager recovered pending issuances",count) end
+end)
+app.security=io:dofile(".lua/security.lua",app)
+app.listener=io:dofile(".lua/listener.lua",app)
+app.view=io:dofile(".lua/view.lua",app)
+app.pkiWorker=ba.thread.create()
+
+app.securityGate=app.security.install(dir)
+app.routes=io:dofile(".lua/routes.lua",app)
+app.actionDir,app.downloadDir=app.routes.install()
+app.cmsDir=io:dofile(".lua/cms.lua",app)
+
+trace("Certificate Manager started",app.store.databasePath(),"new-key mode",app.config.keyMode)
+
+function onunload()
+   app.listener.close()
+   app.store.close()
+end
