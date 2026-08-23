@@ -113,4 +113,3 @@ The same package can be mounted below `/certmgr/` with `-lcertmgr::certmgr.zip`.
 
 Authority and server private keys are protected with authenticated encryption inside SQLite. Authority private keys are never offered for download. Exported server private keys are intentionally unencrypted PEM text files so a server can load them without prompting for a password; move each export to its protected deployment location and remove unnecessary copies.
 
-Do not put `certmgr.sqlite.db`, generated keys, exported credentials, or runtime data inside `www/`, `certmgr.zip`, or source control.
