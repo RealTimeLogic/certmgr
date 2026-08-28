@@ -29,7 +29,7 @@ local protection=app.config.keyMode == "unique" and "Bound to this computer" or 
         <p><?lsp=app.util.html(app.view.algorithm(authority.algorithm))?> · <?lsp=app.util.html(authority.hash_algorithm:upper())?></p></div></div>
         <dl class="detail-grid compact"><dt>Expires</dt><dd><?lsp=app.view.date(authority.not_after)?></dd>
         <dt>Issued</dt><dd><?lsp=app.util.html(authority.issued_count or 0)?></dd><dt>Next serial</dt><dd><?lsp=app.util.html(authority.next_serial)?></dd>
-        <dt>Private-key protection</dt><dd><?lsp=app.util.html(authority.key_mode == 'unique' and 'Bound to this computer' or 'Portable within the configured trust domain')?></dd></dl>
+        <dt>Private-key protection</dt><dd><?lsp=app.util.html(authority.key_provider == 'tpm' and 'Recreated by this computer when needed' or (authority.key_mode == 'unique' and 'Bound to this computer' or 'Portable within the configured trust domain'))?></dd></dl>
       <?lsp else ?>
         <div class="empty"><h3>No authority yet</h3><p>Create the first root authority to begin issuing server certificates.</p>
         <a class="button button-primary" href="<?lsp=app.base?>authorities.html" hx-get="<?lsp=app.base?>authorities.html" hx-target="#main" hx-push-url="true">Create authority</a></div>

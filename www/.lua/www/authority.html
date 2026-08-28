@@ -7,7 +7,7 @@ if not authority then response:setstatus(404) end
 <?lsp if not authority then ?>
   <header class="page-header"><div><p class="eyebrow">Not found</p><h1>Authority unavailable</h1></div></header>
   <div class="alert alert-error"><?lsp=app.util.html(err or 'The requested authority does not exist.')?></div>
-<?lsp else local issue=app.base..'issue.html?ca='..ba.urlencode(authority.id) local protection=authority.key_mode == 'unique' and 'Bound to this computer' or 'Portable within the configured trust domain' ?>
+<?lsp else local issue=app.base..'issue.html?ca='..ba.urlencode(authority.id) local protection=authority.key_provider == 'tpm' and 'Recreated by this computer when needed' or (authority.key_mode == 'unique' and 'Bound to this computer' or 'Portable within the configured trust domain') ?>
   <header class="page-header"><div><p class="eyebrow">Certificate authority</p><h1><?lsp=app.util.html(authority.name)?></h1>
   <p><?lsp=app.util.html(app.view.algorithm(authority.algorithm))?> root authority. Private-key protection: <?lsp=app.util.html(protection)?>.</p></div>
   <a class="button button-primary" href="<?lsp=issue?>" hx-get="<?lsp=issue?>" hx-target="#main" hx-push-url="true">Issue certificate</a></header>

@@ -8,6 +8,10 @@ app.pki=io:dofile(".lua/pki.lua",app)
 app.keyvault=io:dofile(".lua/keyvault.lua",app)
 app.validate=io:dofile(".lua/validate.lua",app)
 app.store=io:dofile(".lua/store.lua",app)
+do
+   local ok,err=app.store.validateKeyConfiguration(app.pki.tpmAuthoritySupported())
+   if not ok then app.store.close() error(err) end
+end
 app.store.recoverPending(function(count,err)
    if not count then trace("Certificate Manager pending-issuance recovery failed",err)
    elseif count > 0 then trace("Certificate Manager recovered pending issuances",count) end

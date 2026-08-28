@@ -101,16 +101,25 @@ local function createAuthority(_ENV)
       generated,err=app.pki.createAuthority(input)
       if not generated then deferredError(defresp,err,back) return end
       local encrypted
-      encrypted,err=app.keyvault.encrypt(generated.key,"authority",input.id,input.algorithm)
-      generated.key=nil
-      if not encrypted then deferredError(defresp,err,back) return end
+      if generated.key_provider == "encrypted" then
+         encrypted,err=app.keyvault.encrypt(generated.key,"authority",input.id,input.algorithm)
+         generated.key=nil
+         if not encrypted then deferredError(defresp,err,back) return end
+      elseif generated.key_provider == "tpm" then
+         encrypted={ciphertext="",iv="",tag="",mode="unique",version=1}
+      else
+         generated.key=nil
+         deferredError(defresp,"Unsupported authority private-key provider.",back)
+         return
+      end
       local record={
          id=input.id,name=input.name,algorithm=input.algorithm,hash_algorithm=generated.hash,
          dn_json=ba.json.encode(input.dn),csr_pem=generated.csr,cert_pem=generated.certificate,
          cert_der=generated.der,parsed_json=ba.json.encode(generated.parsed),
          fingerprint_sha256=generated.fingerprint,shark_ca_list=generated.shark_ca_list,
          key_ciphertext=encrypted.ciphertext,key_iv=encrypted.iv,key_tag=encrypted.tag,
-         key_mode=encrypted.mode,key_version=encrypted.version,created_at=input.created_at,
+         key_mode=encrypted.mode,key_version=encrypted.version,key_provider=generated.key_provider,
+         tpm_key_name=generated.tpm_key_name,created_at=input.created_at,
          not_before=input.not_before,not_after=input.not_after
       }
       app.store.insertAuthority(record,function(id,storeErr)

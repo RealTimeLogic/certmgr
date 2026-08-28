@@ -1,6 +1,7 @@
 <?lsp
 local mode=app.config.keyMode
 local unique=mode == "unique"
+local tpmEcc=app.pki.tpmAuthorityEnabled()
 local modeName=unique and "Unique · bound to this computer" or "Global · portable within a trust domain"
 ?>
 <section class="page about-page">
@@ -48,14 +49,19 @@ local modeName=unique and "Unique · bound to this computer" or "Global · porta
     </div>
     <?lsp if unique then ?>
       <h3>This database is protected for this computer.</h3>
-      <p>Mako Server protects each new private key with a key derived specifically for this computer. The database is not transferable for operational use because another computer cannot decrypt those private keys.</p>
+      <?lsp if tpmEcc then ?>
+      <p>Mako Server recreates each elliptic-curve authority private key from this computer's Trusted Platform Module identity when it is needed. The authority private key is never stored in the database. Other private keys are stored only in encrypted form using protection derived specifically for this computer.</p>
+      <?lsp else ?>
+      <p>Mako Server protects each new private key with a key derived specifically for this computer.</p>
+      <?lsp end ?>
+      <p>The database is not transferable for operational use because another computer cannot recreate or decrypt its private keys.</p>
       <p class="configuration-note">Copying the database can still provide a local recovery copy, but it is not a portable backup.</p>
-      <p><strong>Need a portable database?</strong> Set <code>certmgr.keyMode="global"</code> in <code>mako.conf</code>, point <code>dbdir</code> to a new empty database location, and restart Mako Server before creating the certificate authority. Changing the setting does not convert keys already created in unique mode.</p>
+      <p><strong>Need a portable database?</strong> Set <code>certmgr.keyMode="global"</code> in <code>mako.conf</code>, point <code>dbdir</code> to a new empty database location, and restart Mako Server before creating the certificate authority. A database containing device-bound elliptic-curve authority keys cannot be changed to global mode and must be rebuilt in the new location.</p>
     <?lsp else ?>
       <h3>This database can move within its configured trust domain.</h3>
       <p>Mako Server protects new private keys with a key shared by an administrator-configured trust domain. The database can be transferred only to another Mako Server installation in that same trust domain.</p>
       <p class="configuration-note">Global mode enables controlled portability; the database still contains sensitive encrypted key material and must be protected.</p>
     <?lsp end ?>
-      <p class="configuration-foot">Current setting: <code>certmgr.keyMode="<?lsp=app.util.html(mode)?>"</code> in <code>mako.conf</code>. Existing records retain the protection mode used when they were created; changing this setting affects new keys only. Global mode makes encrypted records portable within their configured trust domain; it does not make Certificate Manager public or remotely accessible.</p>
+      <p class="configuration-foot">Current setting: <code>certmgr.keyMode="<?lsp=app.util.html(mode)?>"</code> in <code>mako.conf</code>. Global mode makes encrypted records portable within their configured trust domain; it does not make Certificate Manager public or remotely accessible.</p>
   </article>
 </section>

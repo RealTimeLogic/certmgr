@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS authorities (
    key_tag BLOB NOT NULL,
    key_mode TEXT NOT NULL CHECK(key_mode IN ('unique','global')),
    key_version INTEGER NOT NULL,
+   key_provider TEXT NOT NULL DEFAULT 'encrypted' CHECK(key_provider IN ('encrypted','tpm')),
+   tpm_key_name TEXT,
    created_at INTEGER NOT NULL,
    not_before INTEGER NOT NULL,
    not_after INTEGER NOT NULL,
@@ -87,17 +89,27 @@ CREATE TABLE IF NOT EXISTS audit_events (
    certificate_id TEXT,
    details_json TEXT NOT NULL
 ) ]])
-execute("INSERT OR IGNORE INTO schema_meta(singleton,version,created_at) VALUES(1,1,strftime('%s','now'))")
+execute("INSERT OR IGNORE INTO schema_meta(singleton,version,created_at) VALUES(1,2,strftime('%s','now'))")
 
+local transactionStarted=false
 do
    local cur=assert(conn:execute("SELECT version FROM schema_meta WHERE singleton=1"))
    local row=cur:fetch({},"a")
    cur:close()
    local version=row and tonumber(row.version)
-   if version ~= 1 then error("unsupported certmgr SQLite schema version: "..tostring(version)) end
+   if version == 1 then
+      assert(conn:setautocommit("IMMEDIATE"))
+      transactionStarted=true
+      execute("ALTER TABLE authorities ADD COLUMN key_provider TEXT NOT NULL DEFAULT 'encrypted' CHECK(key_provider IN ('encrypted','tpm'))")
+      execute("ALTER TABLE authorities ADD COLUMN tpm_key_name TEXT")
+      execute("UPDATE schema_meta SET version=2 WHERE singleton=1")
+      assert(conn:commit("IMMEDIATE"))
+   elseif version ~= 2 then
+      error("unsupported certmgr SQLite schema version: "..tostring(version))
+   end
 end
 
-assert(conn:setautocommit("IMMEDIATE"))
+if not transactionStarted then assert(conn:setautocommit("IMMEDIATE")) end
 local writer=ba.thread.create()
 local closing=false
 
@@ -171,6 +183,19 @@ local function write(operation,callback)
 end
 
 function M.insertAuthority(record,callback)
+   record.key_provider=record.key_provider or "encrypted"
+   if record.key_provider == "tpm" then
+      if record.key_mode ~= "unique" or type(record.algorithm) ~= "string" or
+         not record.algorithm:match("^ecc%-") or
+         record.tpm_key_name ~= "certmgr.authority."..record.id..".v1" or
+         record.key_ciphertext ~= "" or record.key_iv ~= "" or record.key_tag ~= "" then
+         finishCallback(callback,nil,"invalid TPM authority-key record")
+         return
+      end
+   elseif record.key_provider ~= "encrypted" or record.tpm_key_name ~= nil then
+      finishCallback(callback,nil,"invalid encrypted authority-key record")
+      return
+   end
    write(function(db)
       local existing,err=one(db,"SELECT id FROM authorities WHERE name=?",{{"TEXT",record.name}})
       if existing then return nil,"authority name already exists" end
@@ -183,17 +208,20 @@ function M.insertAuthority(record,callback)
          INSERT INTO authorities(
             id,name,algorithm,hash_algorithm,dn_json,csr_pem,cert_pem,cert_der,
             parsed_json,fingerprint_sha256,shark_ca_list,key_ciphertext,key_iv,key_tag,
-            key_mode,key_version,created_at,not_before,not_after,next_serial,status)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)]],{
+            key_mode,key_version,key_provider,tpm_key_name,created_at,not_before,not_after,
+            next_serial,status)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)]],{
          {"TEXT",record.id},{"TEXT",record.name},{"TEXT",record.algorithm},{"TEXT",record.hash_algorithm},
          {"TEXT",record.dn_json},{"TEXT",record.csr_pem},{"TEXT",record.cert_pem},{"BLOB",record.cert_der},
          {"TEXT",record.parsed_json},{"TEXT",record.fingerprint_sha256},{"BLOB",record.shark_ca_list},
          {"BLOB",record.key_ciphertext},{"BLOB",record.key_iv},{"BLOB",record.key_tag},
-         {"TEXT",record.key_mode},{"INTEGER",record.key_version},{"INTEGER",record.created_at},
+         {"TEXT",record.key_mode},{"INTEGER",record.key_version},{"TEXT",record.key_provider},
+         bindValue(record.tpm_key_name),{"INTEGER",record.created_at},
          {"INTEGER",record.not_before},{"INTEGER",record.not_after},{"INTEGER",2},{"TEXT","active"}
       })
       if not result then return nil,err end
-      result,err=audit(db,"authority-created",record.id,nil,{name=record.name,algorithm=record.algorithm})
+      result,err=audit(db,"authority-created",record.id,nil,
+         {name=record.name,algorithm=record.algorithm,key_provider=record.key_provider})
       if not result then return nil,err end
       return record.id
    end,callback)
@@ -203,6 +231,23 @@ function M.getAuthorityByName(name)
    return M.withReader(function(db)
       return one(db,"SELECT id FROM authorities WHERE name=?",{{"TEXT",name}})
    end)
+end
+
+function M.validateKeyConfiguration(hasTpmCertificateApi)
+   local row,err=M.withReader(function(db)
+      return one(db,"SELECT count(*) AS n FROM authorities WHERE key_provider='tpm'")
+   end)
+   if not row then return nil,err end
+   if tonumber(row.n) == 0 then return true end
+   if config.keyMode ~= "unique" then
+      return nil,"mako.conf certmgr.keyMode cannot be changed to 'global' because this database "..
+         "contains device-bound elliptic-curve authority keys. The Certificate Manager database must be rebuilt."
+   end
+   if not hasTpmCertificateApi then
+      return nil,"This database contains device-bound elliptic-curve authority keys, but this Mako Server "..
+         "build cannot use them. Rebuild Mako Server with ba.tpm.createcertificate support."
+   end
+   return true
 end
 
 function M.reserveCertificate(record,callback)
@@ -325,7 +370,7 @@ function M.listAuthorities()
    return M.withReader(function(db)
       return M.queryAll(db,[[
          SELECT a.id,a.name,a.algorithm,a.hash_algorithm,a.fingerprint_sha256,a.created_at,
-                a.not_before,a.not_after,a.next_serial,a.key_mode,a.status,
+                a.not_before,a.not_after,a.next_serial,a.key_mode,a.key_provider,a.status,
                 sum(CASE WHEN c.status='active' THEN 1 ELSE 0 END) AS issued_count,
                 sum(CASE WHEN c.status='failed' THEN 1 ELSE 0 END) AS failed_count
          FROM authorities a LEFT JOIN certificates c ON c.authority_id=a.id
@@ -337,8 +382,8 @@ function M.getAuthority(id,includeSecrets)
    return M.withReader(function(db)
       local columns=includeSecrets and "*" or [[
          id,name,algorithm,hash_algorithm,dn_json,csr_pem,cert_pem,cert_der,parsed_json,
-         fingerprint_sha256,shark_ca_list,key_mode,key_version,created_at,not_before,not_after,
-         next_serial,status]]
+         fingerprint_sha256,shark_ca_list,key_mode,key_version,key_provider,
+         created_at,not_before,not_after,next_serial,status]]
       return one(db,"SELECT "..columns.." FROM authorities WHERE id=?",{{"TEXT",id}})
    end)
 end
