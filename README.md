@@ -9,7 +9,7 @@ For the complete workflow, see [How to act as a Certificate Authority (the Easy 
 ## What you can do
 
 - Create root authorities using P-256/P-384 elliptic-curve keys or 2048/3072-bit RSA keys. RSA is a widely supported public-key algorithm.
-- Issue server certificates for host names and version 4 Internet Protocol addresses, such as 127.0.0.1. Each certificate uses the same key algorithm as its authority.
+- Issue certificates for server authentication using host names and version 4 Internet Protocol addresses, such as 127.0.0.1. Each certificate uses the same key algorithm as its authority, and Mako Server applies the server purpose and certificate permissions automatically.
 - Download certificates in Privacy-Enhanced Mail (PEM) text format, binary `.cer` format, complete PEM chains, and SharkSSL trust-list format.
 - Export an issued server certificate's matching private key as a PEM file for deployment.
 - Start a temporary secure listener available only on this computer and test a certificate before deployment.
@@ -19,7 +19,7 @@ Certificate Manager is intentionally a local administration tool. Both the appli
 
 ## Requirements
 
-- Mako Server with its built-in certificate, database, encryption, and private-key protection services.
+- Mako Server with Barracuda App Server (BAS) library version 6358 or later. This version provides the explicit certificate-profile API plus the database, encryption, and private-key protection services used by Certificate Manager.
 - A writable Mako Server data directory for `certmgr.sqlite.db`.
 - A browser on the same computer as Mako Server.
 

@@ -1,3 +1,7 @@
+local basVersion=ba.version()
+assert(basVersion >= 6358,
+   "Certificate Manager requires Mako Server with BAS library 6358 or newer; running BAS library "..tostring(basVersion))
+
 app.io=io
 app.dir=dir
 

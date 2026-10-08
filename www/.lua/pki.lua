@@ -10,6 +10,51 @@ local algorithms={
 
 M.algorithms=algorithms
 
+local rootPolicy={profile="rootCA",pathLen=0}
+
+local function ipv4Bytes(value)
+   local a,b,c,d=value:match("^IP:(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+   a,b,c,d=tonumber(a),tonumber(b),tonumber(c),tonumber(d)
+   if not a or not b or not c or not d or a > 255 or b > 255 or c > 255 or d > 255 then
+      return nil
+   end
+   return string.char(a,b,c,d)
+end
+
+local function tlsServerPolicy(sans)
+   local approved={}
+   for _,san in ipairs(sans or {}) do
+      if type(san) ~= "string" then return nil,"invalid approved server identity" end
+      local nameType,value
+      if san:sub(1,3) == "IP:" then
+         nameType,value="IP",ipv4Bytes(san)
+      else
+         nameType,value="DNS",san
+      end
+      if not value then return nil,"invalid approved server identity" end
+      approved[nameType.."\0"..value]=true
+   end
+   local expectedCount=#(sans or {})
+   return {
+      profile="tlsServer",
+      approveSANs=function(names)
+         if type(names) ~= "table" or #names ~= expectedCount then return false end
+         local seen={}
+         for _,name in ipairs(names) do
+            if type(name) ~= "table" or
+               (name.type ~= "DNS" and name.type ~= "IP") or
+               type(name.value) ~= "string" then
+               return false
+            end
+            local key=name.type.."\0"..name.value
+            if not approved[key] or seen[key] then return false end
+            seen[key]=true
+         end
+         return true
+      end
+   }
+end
+
 local function call(label,func,...)
    local ok,a,b=pcall(func,...)
    if not ok then return nil,label.." failed: "..tostring(a) end
@@ -62,11 +107,11 @@ function M.createAuthority(input)
       if not ok then return nil,err end
       local csr
       csr,err=call("authority certificate-request generation",ba.tpm.createcsr,keyName,input.dn,
-         {"SSL_CA"},{"KEY_CERT_SIGN","CRL_SIGN"},algorithm.hash)
+         "",{"SSL_CA"},{"KEY_CERT_SIGN","CRL_SIGN"},algorithm.hash)
       if not csr then return nil,err end
       local certificate
       certificate,err=call("authority certificate generation",ba.tpm.createcertificate,keyName,
-         csr,util.utcDate(input.not_before),util.utcDate(input.not_after),1,algorithm.hash)
+         csr,util.utcDate(input.not_before),util.utcDate(input.not_after),1,algorithm.hash,rootPolicy)
       if not certificate then return nil,err end
       local der,parsed,fp=inspect(certificate)
       if not der then return nil,parsed end
@@ -93,11 +138,11 @@ function M.createAuthority(input)
    if not key then return nil,err end
    local csr
    csr,err=call("authority certificate-request generation",ba.create.csr,key,input.dn,
-      {"SSL_CA"},{"KEY_CERT_SIGN","CRL_SIGN"},algorithm.hash)
+      "",{"SSL_CA"},{"KEY_CERT_SIGN","CRL_SIGN"},algorithm.hash)
    if not csr then return nil,err end
    local certificate
    certificate,err=call("authority certificate generation",ba.create.certificate,
-      csr,key,util.utcDate(input.not_before),util.utcDate(input.not_after),1,algorithm.hash)
+      csr,key,util.utcDate(input.not_before),util.utcDate(input.not_after),1,algorithm.hash,rootPolicy)
    if not certificate then return nil,err end
    local der,parsed,fp=inspect(certificate)
    if not der then return nil,parsed end
@@ -122,6 +167,8 @@ end
 function M.createTlsServer(input,authority,keyvault)
    local algorithm=algorithms[authority.algorithm]
    if not algorithm then return nil,"authority uses an unsupported algorithm" end
+   local policy,policyErr=tlsServerPolicy(input.san_list)
+   if not policy then return nil,policyErr end
    local caKey,caKeyName,err
    if authority.key_provider == "tpm" then
       if algorithm.family ~= "ecc" then
@@ -151,11 +198,11 @@ function M.createTlsServer(input,authority,keyvault)
    if caKeyName then
       certificate,err=call("server-certificate signing",ba.tpm.createcertificate,caKeyName,csr,
          authority.cert_pem,util.utcDate(input.not_before),util.utcDate(input.not_after),
-         input.serial,algorithm.hash)
+         input.serial,algorithm.hash,policy)
    else
       certificate,err=call("server-certificate signing",ba.create.certificate,csr,
          authority.cert_pem,caKey,util.utcDate(input.not_before),util.utcDate(input.not_after),
-         input.serial,algorithm.hash)
+         input.serial,algorithm.hash,policy)
    end
    caKey=nil
    if not certificate then leafKey=nil return nil,err end

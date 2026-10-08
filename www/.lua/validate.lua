@@ -114,6 +114,7 @@ local function normalizeSan(commonName,raw)
       end
       if util.hostIsIPv4(value) then add("IP:"..value) return true end
       if value:find(":",1,true) then return nil,"Version 6 IP addresses are not currently supported by Mako Server" end
+      if value:sub(-1) == "." then return nil,"Server host names must not end with a dot" end
       if not util.hostIsDns(value) then return nil,"Invalid server host name: "..value end
       add(value)
       return true
@@ -121,12 +122,14 @@ local function normalizeSan(commonName,raw)
    for value in (raw..";"):gmatch("%s*([^,;\r\n]+)%s*[,;\r\n]") do
       local ok,err=parse(value)
       if not ok then return nil,err end
-      if #result > 32 then return nil,"No more than 32 server identities are supported" end
    end
    local ok,err=parse(commonName)
    if not ok then return nil,err end
+   if #result > 16 then return nil,"No more than 16 server identities are supported" end
    table.sort(result)
-   return result,table.concat(result,";")
+   local sanText=table.concat(result,";")
+   if #sanText > 255 then return nil,"Combined server identities must not exceed 255 bytes" end
+   return result,sanText
 end
 
 function M.certificate(data,authority)

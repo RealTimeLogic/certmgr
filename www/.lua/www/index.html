@@ -43,5 +43,5 @@ local protection=app.config.keyMode == "unique" and "Bound to this computer" or 
       <p class="muted small">Database: certmgr.sqlite.db in the configured Mako database directory</p>
     </article>
   </div>
-  <div class="alert alert-warn"><strong>Current certificate support:</strong> Mako Server creates server certificates for host names and version 4 Internet Protocol addresses, such as 127.0.0.1. Version 6 addresses, client certificates, code-signing certificates, and Extended Key Usage controls are not currently available.</div>
+  <div class="alert alert-warn"><strong>Current certificate support:</strong> Mako Server creates server certificates for host names and version 4 Internet Protocol addresses, such as 127.0.0.1, and automatically limits them to server authentication. Version 6 addresses, client certificates, and code-signing certificates are not currently available.</div>
 </section>
